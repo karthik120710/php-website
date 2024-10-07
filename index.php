@@ -1,10 +1,11 @@
 <?php
+session_start(); 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 $host = "localhost";
 $user = "root";
-$password_db = ""; // Database password
+$password_db = ""; 
 $dbname = "users";
 
 $data = mysqli_connect($host, $user, $password_db, $dbname);
@@ -13,14 +14,14 @@ if ($data == false) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $username = $_POST["username"];
+    $email = $_POST["email"]; // Using email for login
     $password = $_POST["password"];
 
-    // Hash the provided password using MD5
+    // Hash Password using Md5
     $hashed_password = md5($password);
 
-    $stmt = $data->prepare("SELECT * FROM user WHERE username = ?");
-    $stmt->bind_param("s", $username);
+    $stmt = $data->prepare("SELECT * FROM users WHERE email = ?");
+    $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -31,18 +32,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($hashed_password === $row["password"]) {
             // Successful login
             echo "Login successful!";
-            // Redirect or perform actions based on user type
+
+            
+            $_SESSION['firstname'] = $row["firstname"];
+            $_SESSION['email'] = $row["email"]; 
+            
+           
+            header("Location: homepage.php"); 
+            exit();
         } else {
-            echo "Invalid username or password.";
+            echo "Invalid email or password."; 
         }
     } else {
-        echo "No user found with that username.";
+        echo "No user found with that email."; 
     }
 
     $stmt->close();
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -57,8 +64,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <h1>Login</h1>
         <form action="#" method="post">
             <div class="input-group">
-                <label for="username">Username</label>
-                <input type="text" name="username" required>
+                <label for="email">Email</label>
+                <input type="email" name="email" required>
             </div>
             <div class="input-group">
                 <label for="password">Password</label>
@@ -74,4 +81,3 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
 </body>
 </html>
-
