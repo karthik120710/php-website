@@ -14,7 +14,9 @@ if ($data == false) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $email = $_POST["email"]; // Using email for login
+    // print_r($_POST);
+    // exit;
+    $email = $_POST["email"]; 
     $password = $_POST["password"];
 
     // Hash Password using Md5
@@ -30,14 +32,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         
         // Compare the hashed password
         if ($hashed_password === $row["password"]) {
-            // Successful login
             echo "Login successful!";
-
-            
             $_SESSION['firstname'] = $row["firstname"];
             $_SESSION['email'] = $row["email"]; 
-            
-           
+            $_SESSION['role'] = $row["role"];
+
+            //check session stored properly
+            // var_dump($_SESSION); 
+            // exit();
+
             header("Location: homepage.php"); 
             exit();
         } else {
@@ -62,7 +65,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
     <div class="container">
         <h1>Login</h1>
-        <form action="#" method="post">
+        <form action="index.php" method="post">
             <div class="input-group">
                 <label for="email">Email</label>
                 <input type="email" name="email" required>

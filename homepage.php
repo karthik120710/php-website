@@ -1,35 +1,79 @@
 <?php
-session_start(); 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+session_start();
 
-// Check if the user is logged in by verifying if the session variables are set
-if (!isset($_SESSION['username']) || !isset($_SESSION['email'])) {
-    // If not logged in, redirect to login page
+// Database connection details
+$servername="localhost";
+$username="root";
+$password="";
+$dbname="users";
+
+// Create a database connection
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// Check if the user is logged in and has admin privileges
+if (!isset($_SESSION['firstname']) || !isset($_SESSION['email']) || $_SESSION['role'] !== 'admin') {
     header("Location: index.php");
     exit();
 }
 
-// Accessing session variables
-$username = $_SESSION['username'];
+// session variables
+$username = $_SESSION['firstname'];
 $email = $_SESSION['email'];
 
-// Sample product data (this would normally come from a database)
-$products = [
-    [
-        'name' => 'Product 1',
-        'price' => '19.99',
-        'image' => 'images/product1.jpg'
-    ],
-    [
-        'name' => 'Product 2',
-        'price' => '29.99',
-        'image' => 'images/product2.jpg'
-    ],
-    [
-        'name' => 'Product 3',
-        'price' => '39.99',
-        'image' => 'images/product3.jpg'
-    ]
-];
+//  delete request
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
+    $productIdToDelete = $_POST['delete'];
+    $sql = "DELETE FROM products WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $productIdToDelete);
+    $stmt->execute();
+    $stmt->close();
+}
+
+//  edit request
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit'])) {
+    $productIdToEdit = $_POST['edit'];
+    $newDescription = $_POST['description'];
+    $newCategory = $_POST['category'];
+
+    $sql = "UPDATE products SET description = ?, category = ? WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ssi", $newDescription, $newCategory, $productIdToEdit);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// add request
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add'])) {
+    $newDescription = $_POST['new_description'];
+    $newCategory = $_POST['new_category'];
+
+    $sql = "INSERT INTO products (description, category) VALUES (?, ?)";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ss", $newDescription, $newCategory);
+    $stmt->execute();
+    $stmt->close();
+}
+
+// Fetch products from the database
+$sql = "SELECT id, description, category FROM products";
+$result = $conn->query($sql);
+
+$products = [];
+if ($result->num_rows > 0) {
+    while ($row = $result->fetch_assoc()) {
+        $products[] = $row;
+    }
+}
+
+$conn->close();
 ?>
 
 <!DOCTYPE html>
@@ -38,7 +82,7 @@ $products = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Profile</title>
-    <link rel="stylesheet" href="styles.css"> <!-- Add your CSS file -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="header">
@@ -47,57 +91,145 @@ $products = [
     </div>
 
     <div class="container">
-        <h2>Your Products</h2>
+        <h2>Product Management</h2>
+
+        <form method="POST" action="homepage.php">
+            <input type="text" name="new_description" placeholder="New description" required>
+            <select name="new_category">
+                <option value="Essentials">Essentials</option>
+                <option value="Cosmetics">Cosmetics</option>
+                <option value="Fashion">Fashion</option>
+            </select>
+            <input type="submit" name="add" value="Add Product">
+        </form>
+
         <div class="products">
-            <?php foreach ($products as $product): ?>
-                <div class="product">
-                    <img src="<?php echo htmlspecialchars($product['image']); ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
-                    <h3><?php echo htmlspecialchars($product['name']); ?></h3>
-                    <p>Price: $<?php echo htmlspecialchars($product['price']); ?></p>
-                </div>
-            <?php endforeach; ?>
+            <?php if (count($products) > 0): ?>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($products as $product): ?>
+                            <tr>
+                                <td><?php echo $product['id']; ?></td>
+                                <td><?php echo $product['description']; ?></td>
+                                <td><?php echo $product['category']; ?></td>
+                                <td>
+                                    <form method="POST" style="display: inline;">
+                                        <input type="hidden" name="edit" value="<?php echo $product['id']; ?>">
+                                        <input type="text" name="description" placeholder="New description" required>
+                                        <select name="category">
+                                            <option value="Essentials">Essentials</option>
+                                            <option value="Cosmetics">Cosmetics</option>
+                                            <option value="Fashion">Fashion</option>
+                                        </select>
+                                        <button type="submit">Edit</button>
+                                    </form>
+                                    <form method="POST" style="display: inline;">
+                                        <input type="hidden" name="delete" value="<?php echo $product['id']; ?>">
+                                        <button type="submit">Delete</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <p>No products found.</p>
+            <?php endif; ?>
         </div>
     </div>
 
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-        .header {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .logout-button {
-            color: white;
-            text-decoration: none;
-            padding: 10px 15px;
-            background-color: #f44336;
-            border-radius: 5px;
-        }
-        .container {
-            padding: 20px;
-        }
+       
+
+body {
+
+    font-family: Arial, sans-serif;
+
+    margin: 0;
+
+    padding: 0;
+
+}
+
+.header {
+
+    background-color: #4CAF50;
+
+    color: white;
+
+    padding: 10px;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+}
+
+.logout-button {
+
+    color: white;
+
+    text-decoration: none;
+
+    padding: 10px 15px;
+
+    background-color: #f44336;
+
+    border-radius: 5px;
+
+}
+
+.container {
+
+    padding: 20px;
+
+}
+
+.todos {
+
+    margin-top: 20px;
+
+}
+
+.todo {
+
+    border: 1px solid #ccc;
+
+    margin: 10px 0;
+
+    padding: 10px;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+}
         .products {
-            display: flex;
-            flex-wrap: wrap;
+            margin-top: 20px;
         }
-        .product {
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
             border: 1px solid #ccc;
-            margin: 10px;
-            padding: 10px;
-            width: calc(33.333% - 40px); /* Three products per row */
-            box-sizing: border-box;
-            text-align: center;
+            padding: 8px;
+            text-align: left;
         }
-        .product img {
-            max-width: 100%;
-            height: auto;
+        th {
+            background-color: #f2f2f2;
         }
     </style>
 </body>
